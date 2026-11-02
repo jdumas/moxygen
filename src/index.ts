@@ -23,6 +23,7 @@ export const defaultFilters: Filters = {
     'friend',
     'var',
     'property',
+    'user-defined',
     'public-attrib',
     'public-func',
     'public-static-attrib',

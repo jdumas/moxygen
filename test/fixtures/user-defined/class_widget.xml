@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<doxygen version="1.9.8"><compounddef id="class_widget" kind="class">
+<compoundname>Widget</compoundname>
+<sectiondef kind="user-defined"><header>Named operations</header><memberdef id="class_widget_1a_named" kind="function" prot="public" static="no"><type>void</type><definition>void named</definition><argsstring>()</argsstring><name>named</name><briefdescription><para>A documented public named operation.</para></briefdescription></memberdef></sectiondef>
+<sectiondef kind="public-func"><memberdef id="class_widget_1a_control" kind="function" prot="public" static="no"><type>void</type><definition>void control</definition><argsstring>()</argsstring><name>control</name><briefdescription><para>A normal public operation.</para></briefdescription></memberdef></sectiondef>
+</compounddef></doxygen>

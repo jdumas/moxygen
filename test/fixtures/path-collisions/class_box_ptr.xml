@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<doxygen version="1.9.8"><compounddef id="class_box_ptr" kind="class">
+<compoundname>Box&lt;int*&gt;</compoundname>
+<briefdescription><para>POINTER_SPECIALIZATION.</para></briefdescription><detaileddescription><para>See <ref refid="class_box_ref" kindref="compound">reference specialization</ref>.</para></detaileddescription>
+</compounddef></doxygen>

@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<doxygenindex version="1.9.8">
+  <compound refid="class_widget" kind="class"><name>Widget</name><member refid="class_widget_1a_named" kind="function"><name>named</name></member><member refid="class_widget_1a_control" kind="function"><name>control</name></member></compound>
+</doxygenindex>

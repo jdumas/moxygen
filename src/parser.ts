@@ -23,6 +23,7 @@ let root: Compound;
 const parsedMembers = new Set<string>();
 
 interface MarkdownOptions {
+  escapeProse?: boolean;
   skipParameterLists?: boolean;
 }
 
@@ -151,6 +152,7 @@ function toMarkdown(element: unknown, context: XmlElement[] = [], options: Markd
       return s + md.refLink(toMarkdown(el.$$, context, options), el.$?.refid ?? '');
     case '__text__':
       s = el._ ?? '';
+      if (options.escapeProse) s = s.replace(/([\\\[\]])/g, '\\$1');
       break;
     case 'emphasis':
       s = '*';
@@ -166,10 +168,10 @@ function toMarkdown(element: unknown, context: XmlElement[] = [], options: Markd
       // span links the span, and one within longer code reads as code.
       const children = (el.$$ ?? []).filter((child) => child['#name'] !== '__text__' || trim(child._ ?? ''));
       if (children.length === 1 && children[0]['#name'] === 'ref') {
-        return md.refLink(`\`${toMarkdown(children[0].$$, context, options)}\``, children[0].$?.refid ?? '');
+        return md.refLink(`\`${toMarkdown(children[0].$$, context, { ...options, escapeProse: false })}\``, children[0].$?.refid ?? '');
       }
       context.push(el);
-      const code = toMarkdown(el.$$, context, options);
+      const code = toMarkdown(el.$$, context, { ...options, escapeProse: false });
       context.pop();
       return `\`${code}\``;
     }
@@ -314,7 +316,8 @@ function toMarkdown(element: unknown, context: XmlElement[] = [], options: Markd
 
   // Recurse on children
   if (el.$$) {
-    s += toMarkdown(el.$$, context, options);
+    const code = ['programlisting', 'verbatim', 'preformatted', 'parametername'].includes(el['#name'] ?? '');
+    s += toMarkdown(el.$$, context, code ? { ...options, escapeProse: false } : options);
   }
 
   // Closing
@@ -417,11 +420,12 @@ function textContent(element: unknown): string {
 
 /** Convert a named XML field to trimmed Markdown. */
 function mdField(def: Record<string, unknown>, property: string, options: MarkdownOptions = {}): string {
-  return trim(toMarkdown(def[property], [], options));
+  return trim(toMarkdown(def[property], [], { escapeProse: property.endsWith('description'), ...options }));
 }
 
 /** Extract a summary from brief or detailed description. */
 function mdSummary(def: Record<string, unknown>, options: MarkdownOptions = {}): string {
+  options = { ...options, escapeProse: true };
   let summary = trim(toMarkdown(def['briefdescription'], [], options));
   if (!summary) {
     summary = trim(toMarkdown(def['detaileddescription'], [], options));
@@ -606,7 +610,7 @@ function extractDocListItem(item: XmlElement): DocListItem | undefined {
         .filter(Boolean);
       name = names.join(', ');
     } else if (part['#name'] === 'parameterdescription') {
-      description = trim(toMarkdown(part, [], { skipParameterLists: true }));
+      description = trim(toMarkdown(part, [], { skipParameterLists: true, escapeProse: true }));
     }
   }
 

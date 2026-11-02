@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<doxygen version="1.9.8"><compounddef id="namespace_demo" kind="namespace">
+<compoundname>demo</compoundname>
+<sectiondef kind="func"><memberdef id="namespace_demo_1a_ping" kind="function" prot="public" static="no"><type>void</type><definition>void ping</definition><argsstring>(int count)</argsstring><name>ping</name><param><type>int</type><declname>count</declname></param><briefdescription><para>Sends a synthetic ping.</para></briefdescription></memberdef></sectiondef>
+</compounddef></doxygen>

@@ -20,6 +20,7 @@ import type {
 let parserOptions: MoxygenOptions;
 const references: References = {};
 let root: Compound;
+const parsedMembers = new Set<string>();
 
 interface MarkdownOptions {
   skipParameterLists?: boolean;
@@ -533,6 +534,18 @@ function parseMembers(
 
   if (membersdef) {
     for (const memberdef of membersdef) {
+      const attrs = memberdef.$ as Record<string, string>;
+      const existing = references[attrs.refid] as Member | undefined;
+      if (existing) {
+        if (!compound.members.includes(existing)) compound.members.push(existing);
+        // A file or group lists members declared by a namespace/type; it does
+        // not become their declaring owner merely by appearing later.
+        if (['file', 'group'].includes(existing.parent.kind) &&
+            !['file', 'group'].includes(compound.kind)) {
+          existing.parent = compound;
+        }
+        continue;
+      }
       const member: Member = {
         name: (memberdef.name as string[])[0],
         parent: compound,
@@ -571,7 +584,6 @@ function parseMembers(
       };
       compound.members.push(member);
 
-      const attrs = memberdef.$ as Record<string, string>;
       if (attrs) {
         Object.assign(member, attrs);
       }
@@ -654,6 +666,7 @@ function parseMember(
 ): void {
   log.verbose(`Processing member ${member.kind} ${member.name}`);
   member.section = section;
+  member.params = [];
 
   const docLists = extractDocLists(memberdef);
 
@@ -965,9 +978,14 @@ function parseCompound(compound: Compound, compounddef: Record<string, unknown>)
             member.groupid = compound.id;
             member.groupname = compound.name;
           } else if (compound.kind === 'file') {
-            root.members.push(member);
+            if (!root.members.includes(member)) root.members.push(member);
           }
-          parseMember(member, sectionAttrs.kind, memberdef);
+          // Parse shared definitions once, preferring the declaring owner's
+          // section when it is available after a file/group definition.
+          if (!parsedMembers.has(member.refid) || member.parent === compound) {
+            parseMember(member, sectionAttrs.kind, memberdef);
+            parsedMembers.add(member.refid);
+          }
         }
       }
     }
@@ -1099,8 +1117,11 @@ function parseIndex(
 
   // Pass 2: parse compound XML files. All refs are now registered so
   // innerclass/innernamespace lookups succeed regardless of order.
+  const parsedCompounds = new Set<string>();
   for (const element of sorted) {
     const attrs = element.$ as Record<string, string>;
+    if (parsedCompounds.has(attrs.refid)) continue;
+    parsedCompounds.add(attrs.refid);
     const compound = references[attrs.refid] as Compound;
     if (!compound) continue;
 
@@ -1138,6 +1159,7 @@ export async function loadIndex(options: MoxygenOptions): Promise<{ root: Compou
   root = createCompound();
   root.kind = 'index';
 
+  parsedMembers.clear();
   // Clear references
   for (const key of Object.keys(references)) {
     delete references[key];

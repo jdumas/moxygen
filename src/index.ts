@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { join, dirname, isAbsolute, resolve } from 'node:path';
+import { createHash } from 'node:crypto';
+import { join, dirname, isAbsolute, resolve, extname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { toArray, toFilteredArray, filterChildren, filterCollection, filterNoise, groupMembersBySection } from './compound.js';
 import { renderSignature } from './signature.js';
@@ -747,6 +748,8 @@ export async function generate(
     files.draw(page, `${page.name}.html`, () => templates.renderArray(pageCompounds));
   }
 
+  files.allocatePaths(['api.html', `${GLOBALS_SLUG}.html`]);
+
   // Third pass: resolve every page's references against where targets landed.
   for (const { compound, path, contents } of files.drawn) {
     const links: PageLinks = { path, targets: files.targets };
@@ -755,7 +758,7 @@ export async function generate(
       const meta = extractResolvedMeta(compound, references, opts, anchorMap, undefined, undefined, links);
       if (markdown) {
         pages.push({
-          slug: compound.name,
+          slug: basename(path, '.html'),
           title: shortname(compound.name),
           kind: 'page',
           description: meta.description,
@@ -777,6 +780,7 @@ export async function generate(
       continue;
     }
     const meta = extractResolvedMeta(compound, references, opts, anchorMap, slugMap, pagePathMap, links);
+    meta.slug = basename(path, '.html');
     const moduleName = modules.get(compound);
     if (moduleName) meta.module = moduleName;
     const markdown = renderCompound(compound, contents, references, opts, anchorMap, slugMap, pagePathMap, links);
@@ -1227,6 +1231,8 @@ export async function run(options: Partial<MoxygenOptions> & { directory: string
     }
   }
 
+  files.allocatePaths([join(dirname(opts.output), 'api.md'), join(dirname(opts.output), `${GLOBALS_SLUG}.md`)]);
+
   // --- Pass 3: resolve each file's references against where targets landed, and write ---
   for (const { compound, path, contents } of files.drawn) {
     writeWithOptionalFrontmatter(compound, contents, references, opts, anchorMap, pagePathMap, { path, targets: files.targets });
@@ -1237,12 +1243,20 @@ export async function run(options: Partial<MoxygenOptions> & { directory: string
  * Pages drawn before any reference is resolved, with the page and anchor each
  * target landed at, so every reference links to where its target is drawn.
  */
+interface DrawnFile {
+  compound: Compound;
+  path: string;
+  contents: (string | undefined)[];
+}
+
 class DrawnFiles {
   readonly targets: PageLinks['targets'] = new Map();
-  readonly drawn: { compound: Compound; path: string; contents: (string | undefined)[] }[] = [];
+  readonly drawn: DrawnFile[] = [];
+  private readonly targetFiles = new Map<string, DrawnFile>();
 
   draw(compound: Compound, path: string, render: () => (string | undefined)[]): (string | undefined)[] {
-    templates.recordAnchors((refid, anchor) => this.land(refid, path, anchor));
+    const file: DrawnFile = { compound, path, contents: [] };
+    templates.recordAnchors((refid, anchor) => this.land(refid, file, anchor));
     let contents: (string | undefined)[];
     try {
       contents = render();
@@ -1252,15 +1266,55 @@ class DrawnFiles {
     // A section or \anchor in a description is drawn under its own id.
     for (const content of contents) {
       for (const [, html, pandoc] of content?.matchAll(/<a id="([^"]+)"><\/a>|\{#([^\s}]+)\}/g) ?? []) {
-        this.land(html ?? pandoc, path, html ?? pandoc);
+        this.land(html ?? pandoc, file, html ?? pandoc);
       }
     }
-    this.drawn.push({ compound, path, contents });
+    file.contents = contents;
+    this.drawn.push(file);
     return contents;
   }
 
-  private land(refid: string, path: string, anchor: string): void {
-    if (!this.targets.has(refid)) this.targets.set(refid, { path, anchor });
+  /** Keep ordinary URLs, suffix only collisions, including on case-insensitive disks. */
+  allocatePaths(reserved: string[]): void {
+    const key = (path: string): string => resolve(path).replace(/[A-Z]/g, c => c.toLowerCase());
+    const counts = new Map<string, number>();
+    const used = new Set(reserved.map(key));
+    for (const file of this.drawn) {
+      const pathKey = key(file.path);
+      counts.set(pathKey, (counts.get(pathKey) ?? 0) + 1);
+    }
+    const originals = new Set(counts.keys());
+    // Sort only allocation, not page order, so an XML index reorder cannot rename pages.
+    for (const file of [...this.drawn].sort((a, b) => a.compound.refid < b.compound.refid ? -1 : 1)) {
+      const original = file.path;
+      const pathKey = key(original);
+      const fixed = file.compound.kind === 'index';
+      if (!fixed && ((counts.get(pathKey) ?? 0) > 1 || used.has(pathKey))) {
+        const extension = extname(original);
+        const stem = original.slice(0, original.length - extension.length);
+        const suffix = createHash('sha256').update(file.compound.refid).digest('hex').slice(0, 12);
+        let candidate = `${stem}--${suffix}${extension}`;
+        let index = 1;
+        while (used.has(key(candidate)) || originals.has(key(candidate))) {
+          candidate = `${stem}--${suffix}-${index++}${extension}`;
+        }
+        file.path = candidate;
+      }
+      used.add(key(file.path));
+    }
+    const finalPaths = new Set<string>();
+    for (const file of this.drawn) {
+      if (finalPaths.has(key(file.path))) throw new Error(`Output path collision: ${file.path}`);
+      finalPaths.add(key(file.path));
+    }
+    for (const [refid, target] of this.targets) target.path = this.targetFiles.get(refid)!.path;
+  }
+
+  private land(refid: string, file: DrawnFile, anchor: string): void {
+    if (!this.targets.has(refid)) {
+      this.targets.set(refid, { path: file.path, anchor });
+      this.targetFiles.set(refid, file);
+    }
   }
 }
 
@@ -1282,7 +1336,7 @@ function writeWithOptionalFrontmatter(
   links?: PageLinks,
 ): void {
   if (options.frontmatter) {
-    const filepath = compoundPath(compound, options);
+    const filepath = links?.path ?? compoundPath(compound, options);
     const body = renderCompound(compound, contents, references, options, anchorMap, undefined, pagePathMap, links);
     const fm = generateFrontmatter(
       extractResolvedMeta(compound, references, options, anchorMap, undefined, pagePathMap, links),

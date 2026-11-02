@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<doxygenindex version="1.9.8">
+  <compound refid="class_box_ptr" kind="class"><name>Box&lt;int*&gt;</name></compound>
+  <compound refid="class_box_ref" kind="class"><name>Box&lt;int&amp;&gt;</name></compound>
+<compound refid="class_ui_lower" kind="class"><name>UiState</name></compound>
+<compound refid="class_ui_upper" kind="class"><name>UIState</name></compound>
+<compound refid="class_api" kind="class"><name>api</name></compound>
+<compound refid="class_plain" kind="class"><name>Plain</name></compound>
+</doxygenindex>

@@ -353,7 +353,7 @@ export function writeCompound(
   pagePathMap?: PagePathMap,
   links?: PageLinks,
 ): void {
-  const filepath = compoundPath(compound, options);
+  const filepath = links?.path ?? compoundPath(compound, options);
   const output = renderCompound(compound, contents, references, options, anchorMap, undefined, pagePathMap, links);
   writeFile(filepath, [output]);
 }

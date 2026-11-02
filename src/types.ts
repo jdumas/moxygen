@@ -41,6 +41,8 @@ export interface MoxygenOptions {
   frontmatter: boolean;
   filters: Filters;
   inlineGroups: boolean;
+  /** Optional JSON target manifest; page paths are relative to dirname(output). */
+  linkManifest?: string;
 }
 
 export interface Filters {

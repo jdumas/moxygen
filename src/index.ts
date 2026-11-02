@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { join, dirname, isAbsolute, resolve, extname, basename } from 'node:path';
+import { join, dirname, isAbsolute, resolve, extname, basename, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { toArray, toFilteredArray, filterChildren, filterCollection, filterNoise, groupMembersBySection } from './compound.js';
 import { renderSignature } from './signature.js';
@@ -113,6 +113,11 @@ async function loadAndPrepare(opts: MoxygenOptions): Promise<{ root: Compound; r
 // ---------------------------------------------------------------------------
 // Generated page type (for library consumers)
 // ---------------------------------------------------------------------------
+
+export interface LinkManifest {
+  version: 1;
+  targets: Record<string, { path: string; anchor: string }>;
+}
 
 export interface GeneratedPage {
   slug: string;
@@ -1233,9 +1238,20 @@ export async function run(options: Partial<MoxygenOptions> & { directory: string
 
   files.allocatePaths([join(dirname(opts.output), 'api.md'), join(dirname(opts.output), `${GLOBALS_SLUG}.md`)]);
 
+  // Validate before writing any output so a manifest cannot replace a page.
+  if (opts.linkManifest) {
+    const manifestPath = resolve(opts.linkManifest).toLowerCase();
+    if (files.drawn.some(file => resolve(file.path).toLowerCase() === manifestPath)) {
+      throw new Error('Link manifest would overwrite a generated page.');
+    }
+  }
+
   // --- Pass 3: resolve each file's references against where targets landed, and write ---
   for (const { compound, path, contents } of files.drawn) {
     writeWithOptionalFrontmatter(compound, contents, references, opts, anchorMap, pagePathMap, { path, targets: files.targets });
+  }
+  if (opts.linkManifest) {
+    writeFile(opts.linkManifest, [JSON.stringify(files.manifest(dirname(opts.output)), null, 2) + '\n']);
   }
 }
 
@@ -1251,12 +1267,18 @@ interface DrawnFile {
 
 class DrawnFiles {
   readonly targets: PageLinks['targets'] = new Map();
+  private readonly rawRefids = new Set<string>();
   readonly drawn: DrawnFile[] = [];
   private readonly targetFiles = new Map<string, DrawnFile>();
 
   draw(compound: Compound, path: string, render: () => (string | undefined)[]): (string | undefined)[] {
     const file: DrawnFile = { compound, path, contents: [] };
-    templates.recordAnchors((refid, anchor) => this.land(refid, file, anchor));
+    const canonicalAnchors = new Set<string>();
+    templates.recordAnchors((refid, anchor) => {
+      this.rawRefids.add(refid);
+      canonicalAnchors.add(anchor);
+      this.land(refid, file, anchor);
+    });
     let contents: (string | undefined)[];
     try {
       contents = render();
@@ -1266,7 +1288,9 @@ class DrawnFiles {
     // A section or \anchor in a description is drawn under its own id.
     for (const content of contents) {
       for (const [, html, pandoc] of content?.matchAll(/<a id="([^"]+)"><\/a>|\{#([^\s}]+)\}/g) ?? []) {
-        this.land(html ?? pandoc, file, html ?? pandoc);
+        const id = html ?? pandoc;
+        this.land(id, file, id);
+        if (!canonicalAnchors.has(id)) this.rawRefids.add(id);
       }
     }
     file.contents = contents;
@@ -1308,6 +1332,27 @@ class DrawnFiles {
       finalPaths.add(key(file.path));
     }
     for (const [refid, target] of this.targets) target.path = this.targetFiles.get(refid)!.path;
+  }
+
+  manifest(outputDirectory: string): LinkManifest {
+    const targets: LinkManifest['targets'] = {};
+    const anchorsByPath = new Map<string, Set<string>>();
+    for (const file of this.drawn) {
+      const anchors = new Set<string>();
+      for (const content of file.contents) {
+        for (const [, html, pandoc] of content?.matchAll(/<a id="([^"]+)"><\/a>|\{#([^\s}]+)\}/g) ?? []) {
+          anchors.add(html ?? pandoc);
+        }
+      }
+      anchorsByPath.set(file.path, anchors);
+    }
+    for (const refid of [...this.rawRefids].sort()) {
+      const target = this.targets.get(refid)!;
+      // cleanAnchor is called even with anchors disabled or by custom templates.
+      if (!anchorsByPath.get(target.path)?.has(target.anchor)) continue;
+      targets[refid] = { path: relative(outputDirectory, target.path).replace(/\\/g, '/'), anchor: target.anchor };
+    }
+    return { version: 1, targets };
   }
 
   private land(refid: string, file: DrawnFile, anchor: string): void {

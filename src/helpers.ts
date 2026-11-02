@@ -291,6 +291,10 @@ function resolveDrawnRefs(content: string, links: PageLinks): string {
 function openingBracket(content: string, close: number, floor: number): number {
   let depth = 1;
   for (let i = close - 1; i >= floor; i--) {
+    // Escaped brackets in an XML prose label are literal, not delimiters.
+    let slashes = 0;
+    for (let j = i - 1; j >= floor && content[j] === '\\'; j--) slashes++;
+    if (slashes % 2) continue;
     if (content[i] === ']') depth++;
     else if (content[i] === '[' && --depth === 0) return i;
   }

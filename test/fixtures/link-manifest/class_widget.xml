@@ -1,0 +1,7 @@
+<doxygen><compounddef id="class_widget" kind="class"><compoundname>Widget</compoundname>
+<briefdescription><para>A synthetic widget.</para></briefdescription>
+<detaileddescription><para><anchor id="class_widget_1details"/>Details.</para></detaileddescription>
+<sectiondef kind="public-func"><memberdef id="class_widget_1a_reset" kind="function" prot="public" static="no"><type>void</type><definition>void Widget::reset</definition><argsstring>()</argsstring><name>reset</name><briefdescription><para>Resets the widget.</para></briefdescription></memberdef></sectiondef>
+<sectiondef kind="private-func"><memberdef id="class_widget_1a_hidden" kind="function" prot="private" static="no"><type>void</type><name>hidden</name></memberdef></sectiondef>
+<sectiondef kind="public-type"><memberdef id="class_widget_1a_mode" kind="enum" prot="public"><name>Mode</name><enumvalue id="class_widget_1a_mode_a_fast"><name>Fast</name></enumvalue></memberdef></sectiondef>
+</compounddef></doxygen>

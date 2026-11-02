@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<doxygenindex version="1.9.8">
+  <compound refid="group__demo" kind="group"><name>operations</name><member refid="namespace_demo_1a_ping" kind="function"><name>ping</name></member></compound>
+  <compound refid="namespace_demo" kind="namespace"><name>demo</name><member refid="namespace_demo_1a_ping" kind="function"><name>ping</name></member></compound>
+  <compound refid="demo_8hpp" kind="file"><name>demo.hpp</name><member refid="namespace_demo_1a_ping" kind="function"><name>ping</name></member></compound>
+<compound refid="namespace_demo" kind="namespace"><name>demo</name><member refid="namespace_demo_1a_ping" kind="function"><name>ping</name></member></compound>
+</doxygenindex>

@@ -747,7 +747,7 @@ export async function generate(
     files.draw(page, `${page.name}.html`, () => templates.renderArray(pageCompounds));
   }
 
-  files.allocatePaths(['api.html', `${GLOBALS_SLUG}.html`]);
+  files.allocatePaths();
 
   // Third pass: resolve every page's references against where targets landed.
   for (const { compound, path, contents } of files.drawn) {
@@ -1230,7 +1230,7 @@ export async function run(options: Partial<MoxygenOptions> & { directory: string
     }
   }
 
-  files.allocatePaths([join(dirname(opts.output), 'api.md'), join(dirname(opts.output), `${GLOBALS_SLUG}.md`)]);
+  files.allocatePaths();
 
   // --- Pass 3: resolve each file's references against where targets landed, and write ---
   for (const { compound, path, contents } of files.drawn) {
@@ -1274,10 +1274,10 @@ class DrawnFiles {
   }
 
   /** Keep ordinary URLs, suffix only collisions, including on case-insensitive disks. */
-  allocatePaths(reserved: string[]): void {
+  allocatePaths(): void {
     const key = (path: string): string => resolve(path).replace(/[A-Z]/g, c => c.toLowerCase());
     const counts = new Map<string, number>();
-    const used = new Set(reserved.map(key));
+    const used = new Set<string>();
     for (const file of this.drawn) {
       const pathKey = key(file.path);
       counts.set(pathKey, (counts.get(pathKey) ?? 0) + 1);

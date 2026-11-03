@@ -162,6 +162,27 @@ for (const page of pages) {
 }
 ```
 
+### Raw Doxygen link targets
+
+`run({ directory, output: 'out/%s.md', classes: true, linkManifest: 'out/links.json' })`
+optionally writes `{ "version": 1, "targets": { "raw_refid": { "path": "Page.md", "anchor": "canonical-anchor" } } }`.
+Paths are relative to the output pattern's directory, use `/`, and include the actual
+filename. Keys are sorted for deterministic JSON. Only targets with drawn explicit
+anchors are included; filtered members are absent and enum values point to their
+enum's anchor. No aliases or extra HTML anchors are emitted. A manifest path that
+would overwrite a generated page is rejected before any files are written.
+
+The CLI exposes the same optional output:
+
+```sh
+moxygen path/to/xml --classes --html-anchors --output 'out/%s.md' --link-manifest out/links.json
+```
+
+To translate a Doxygen URL `compound.html#hash`, look up `compound + '_1' + hash`;
+without a fragment, look up `compound`. A missing key means no drawn target.
+`generate()` still performs no disk I/O. Its pages and search entries do not expose
+raw refids, so they cannot substitute for this manifest through the public API.
+
 ## Development
 
 ```bash

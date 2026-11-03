@@ -28,6 +28,7 @@ program
   .option('-t, --templates <dir>', 'custom templates directory')
   .option('-s, --source-root <dir>', 'source root used to resolve file-level group membership')
   .option('-f, --frontmatter', 'prepend YAML frontmatter to output files', false)
+  .option('--link-manifest <file>', 'write emitted Doxygen targets to a JSON manifest')
   .option('-L, --logfile [file]', 'output log messages to file (default: "moxygen.log")')
   .option('-I, --inline-groups', 'inline group members into the parent compound instead of generating separate files', false)
   .option('-q, --quiet', 'quiet mode', false)
@@ -47,6 +48,7 @@ program
         templates: opts.templates as string | undefined,
         sourceRoot: opts.sourceRoot as string | undefined,
         frontmatter: opts.frontmatter as boolean,
+        linkManifest: opts.linkManifest as string | undefined,
         logfile: opts.logfile as string | boolean | undefined,
         quiet: opts.quiet as boolean,
         inlineGroups: opts.inlineGroups as boolean,

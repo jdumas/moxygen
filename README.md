@@ -172,6 +172,12 @@ anchors are included; filtered members are absent and enum values point to their
 enum's anchor. No aliases or extra HTML anchors are emitted. A manifest path that
 would overwrite a generated page is rejected before any files are written.
 
+The CLI exposes the same optional output:
+
+```sh
+moxygen path/to/xml --classes --html-anchors --output 'out/%s.md' --link-manifest out/links.json
+```
+
 To translate a Doxygen URL `compound.html#hash`, look up `compound + '_1' + hash`;
 without a fragment, look up `compound`. A missing key means no drawn target.
 `generate()` still performs no disk I/O. Its pages and search entries do not expose

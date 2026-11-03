@@ -9,6 +9,7 @@
  */
 /** Section keys to the heading shown above that group of members. */
 export const SECTION_LABELS = {
+    'user-defined': 'User-Defined Members',
     'public-type': 'Public Types',
     'public-func': 'Public Methods',
     'public-static-func': 'Public Static Methods',

@@ -91,7 +91,7 @@ export function filterCollection(collection, key, allowedCategories, groupid) {
                     continue;
                 }
             }
-            else if (item.groupid !== groupid) {
+            else if (item.groupid !== groupid && !item.groupids?.includes(groupid)) {
                 continue;
             }
         }

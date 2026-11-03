@@ -618,7 +618,7 @@ export async function generate(options) {
         pageCompounds.unshift(page);
         files.draw(page, `${page.name}.html`, () => templates.renderArray(pageCompounds));
     }
-    files.allocatePaths(['api.html', `${GLOBALS_SLUG}.html`]);
+    files.allocatePaths();
     // Third pass: resolve every page's references against where targets landed.
     for (const { compound, path, contents } of files.drawn) {
         const links = { path, targets: files.targets };
@@ -889,6 +889,10 @@ function renderCompoundPage(primary, definitions = []) {
  */
 export async function run(options) {
     const opts = resolveOptions(options);
+    if (opts.linkManifest && typeof opts.logfile === 'string' &&
+        resolve(opts.linkManifest).replace(/[A-Z]/g, c => c.toLowerCase()) === resolve(opts.logfile).replace(/[A-Z]/g, c => c.toLowerCase())) {
+        throw new Error('Link manifest must not overwrite the logfile.');
+    }
     const { root, references } = await loadAndPrepare(opts);
     let pagePathMap;
     const splitOutput = opts.groups || opts.classes;
@@ -1048,11 +1052,11 @@ export async function run(options) {
             files.draw(page, compoundPath(page, opts), () => templates.renderArray(compounds));
         }
     }
-    files.allocatePaths([join(dirname(opts.output), 'api.md'), join(dirname(opts.output), `${GLOBALS_SLUG}.md`)]);
+    files.allocatePaths();
     // Validate before writing any output so a manifest cannot replace a page.
     if (opts.linkManifest) {
-        const manifestPath = resolve(opts.linkManifest).toLowerCase();
-        if (files.drawn.some(file => resolve(file.path).toLowerCase() === manifestPath)) {
+        const manifestPath = resolve(opts.linkManifest).replace(/[A-Z]/g, c => c.toLowerCase());
+        if (files.drawn.some(file => resolve(file.path).replace(/[A-Z]/g, c => c.toLowerCase()) === manifestPath)) {
             throw new Error('Link manifest would overwrite a generated page.');
         }
     }
@@ -1063,6 +1067,30 @@ export async function run(options) {
     if (opts.linkManifest) {
         writeFile(opts.linkManifest, [JSON.stringify(files.manifest(dirname(opts.output)), null, 2) + '\n']);
     }
+}
+/** Explicit rendered anchors, excluding literal examples in code. */
+function explicitAnchors(contents) {
+    const anchors = new Set();
+    for (const content of contents) {
+        let fence = '';
+        const prose = (content ?? '').split('\n').filter(line => {
+            const marker = /^\s*(`{3,}|~{3,})/.exec(line);
+            if (fence) {
+                if (marker && marker[1][0] === fence[0] && marker[1].length >= fence.length && !line.slice(marker[0].length).trim())
+                    fence = '';
+                return false;
+            }
+            if (marker) {
+                fence = marker[1];
+                return false;
+            }
+            return true;
+        }).join('\n').replace(/<pre\b[^>]*>[\s\S]*?<\/pre>/gi, '')
+            .replace(/(?<!`)(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)/g, '');
+        for (const [, html, pandoc] of prose.matchAll(/<a id="([^"]+)"><\/a>|\{#([^\s}]+)\}/g))
+            anchors.add(html ?? pandoc);
+    }
+    return anchors;
 }
 class DrawnFiles {
     targets = new Map();
@@ -1085,12 +1113,10 @@ class DrawnFiles {
             templates.recordAnchors(undefined);
         }
         // A section or \anchor in a description is drawn under its own id.
-        for (const content of contents) {
-            for (const [, html, pandoc] of content?.matchAll(/<a id="([^"]+)"><\/a>|\{#([^\s}]+)\}/g) ?? []) {
-                const id = html ?? pandoc;
+        for (const id of explicitAnchors(contents)) {
+            if (!canonicalAnchors.has(id)) {
                 this.land(id, file, id);
-                if (!canonicalAnchors.has(id))
-                    this.rawRefids.add(id);
+                this.rawRefids.add(id);
             }
         }
         file.contents = contents;
@@ -1098,10 +1124,10 @@ class DrawnFiles {
         return contents;
     }
     /** Keep ordinary URLs, suffix only collisions, including on case-insensitive disks. */
-    allocatePaths(reserved) {
+    allocatePaths() {
         const key = (path) => resolve(path).replace(/[A-Z]/g, c => c.toLowerCase());
         const counts = new Map();
-        const used = new Set(reserved.map(key));
+        const used = new Set();
         for (const file of this.drawn) {
             const pathKey = key(file.path);
             counts.set(pathKey, (counts.get(pathKey) ?? 0) + 1);
@@ -1138,13 +1164,7 @@ class DrawnFiles {
         const targets = {};
         const anchorsByPath = new Map();
         for (const file of this.drawn) {
-            const anchors = new Set();
-            for (const content of file.contents) {
-                for (const [, html, pandoc] of content?.matchAll(/<a id="([^"]+)"><\/a>|\{#([^\s}]+)\}/g) ?? []) {
-                    anchors.add(html ?? pandoc);
-                }
-            }
-            anchorsByPath.set(file.path, anchors);
+            anchorsByPath.set(file.path, explicitAnchors(file.contents));
         }
         for (const refid of [...this.rawRefids].sort()) {
             const target = this.targets.get(refid);

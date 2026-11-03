@@ -82,6 +82,8 @@ export interface Member {
     detaileddescription: string;
     summary: string;
     enumvalue: EnumValue[];
+    /** All Doxygen groups containing this shared member; groupid stays primary. */
+    groupids?: string[];
     groupid?: string;
     groupname?: string;
     id?: string;

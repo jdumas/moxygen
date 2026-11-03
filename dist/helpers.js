@@ -247,7 +247,15 @@ function resolveDrawnRefs(content, links) {
 /** The `[` that a link text's closing `]` pairs with, or -1. */
 function openingBracket(content, close, floor) {
     let depth = 1;
+    // Matched code spans are literal even when their brackets are unbalanced.
+    // Match complete delimiter runs, so a lone backtick remains ordinary text.
+    const code = [...content.slice(floor, close).matchAll(/(?<!`)(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)/g)];
+    let span = code.length - 1;
     for (let i = close - 1; i >= floor; i--) {
+        if (span >= 0 && i < floor + code[span].index + code[span][0].length) {
+            i = floor + code[span--].index;
+            continue;
+        }
         // Escaped brackets in an XML prose label are literal, not delimiters.
         let slashes = 0;
         for (let j = i - 1; j >= floor && content[j] === '\\'; j--)

@@ -34,6 +34,19 @@ it('keeps specializations, case-only names and reserved root names distinct, wit
   expect(reference.markdown).toContain(`](${pointer.slug}.html#`);
 });
 
+it('does not reserve an index filename when no index is emitted', async () => {
+  const destination = join(output, 'no-index');
+  await run({ directory, classes: true, noindex: true, output: join(destination, '%s.md'), quiet: true });
+  expect(readdirSync(destination)).toContain('api.md');
+  expect((await generate({ directory, quiet: true })).some(page => page.slug === 'api')).toBe(true);
+});
+
+it('keeps the requested single-file output name', async () => {
+  const destination = join(output, 'single.md');
+  await run({ directory, output: destination, quiet: true });
+  expect(existsSync(destination)).toBe(true);
+});
+
 it('allocates the same names after index reordering, without frontmatter or a root index', async () => {
   const reversed = join(output, 'xml');
   cpSync(directory, reversed, { recursive: true });

@@ -13,6 +13,9 @@ it('escapes XML prose, not generated links, code, formulas or declarations', asy
   expect(text).toContain('C:\\\\tmp');
   expect(text).toContain('`x[i](0)`');
   expect(text).toContain('[`x[i](0)`](#apply)');
+  expect(text).toContain('[`operator[`](#apply)');
+  expect(text).toContain('[`operator]`](#apply)');
+  expect(text).toContain('Undrawn `operator[` and `operator]` stay readable.');
   expect(text).toContain('[help](https://example.org/help)');
   expect(text).toContain('[array \\[index](https://example.org/array)');
   expect(text).toContain('[array \\[index](#apply)');

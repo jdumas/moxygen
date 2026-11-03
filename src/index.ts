@@ -1064,6 +1064,10 @@ function renderCompoundPage(primary: Compound, definitions: Compound[] = []): (s
  */
 export async function run(options: Partial<MoxygenOptions> & { directory: string }): Promise<void> {
   const opts = resolveOptions(options);
+  if (opts.linkManifest && typeof opts.logfile === 'string' &&
+      resolve(opts.linkManifest).replace(/[A-Z]/g, c => c.toLowerCase()) === resolve(opts.logfile).replace(/[A-Z]/g, c => c.toLowerCase())) {
+    throw new Error('Link manifest must not overwrite the logfile.');
+  }
   const { root, references } = await loadAndPrepare(opts);
   let pagePathMap: PagePathMap | undefined;
   const splitOutput = opts.groups || opts.classes;
@@ -1233,8 +1237,8 @@ export async function run(options: Partial<MoxygenOptions> & { directory: string
 
   // Validate before writing any output so a manifest cannot replace a page.
   if (opts.linkManifest) {
-    const manifestPath = resolve(opts.linkManifest).toLowerCase();
-    if (files.drawn.some(file => resolve(file.path).toLowerCase() === manifestPath)) {
+    const manifestPath = resolve(opts.linkManifest).replace(/[A-Z]/g, c => c.toLowerCase());
+    if (files.drawn.some(file => resolve(file.path).replace(/[A-Z]/g, c => c.toLowerCase()) === manifestPath)) {
       throw new Error('Link manifest would overwrite a generated page.');
     }
   }
@@ -1252,6 +1256,26 @@ export async function run(options: Partial<MoxygenOptions> & { directory: string
  * Pages drawn before any reference is resolved, with the page and anchor each
  * target landed at, so every reference links to where its target is drawn.
  */
+/** Explicit rendered anchors, excluding literal examples in code. */
+function explicitAnchors(contents: (string | undefined)[]): Set<string> {
+  const anchors = new Set<string>();
+  for (const content of contents) {
+    let fence = '';
+    const prose = (content ?? '').split('\n').filter(line => {
+      const marker = /^\s*(`{3,}|~{3,})/.exec(line);
+      if (fence) {
+        if (marker && marker[1][0] === fence[0] && marker[1].length >= fence.length && !line.slice(marker[0].length).trim()) fence = '';
+        return false;
+      }
+      if (marker) { fence = marker[1]; return false; }
+      return true;
+    }).join('\n').replace(/<pre\b[^>]*>[\s\S]*?<\/pre>/gi, '')
+      .replace(/(?<!`)(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)/g, '');
+    for (const [, html, pandoc] of prose.matchAll(/<a id="([^"]+)"><\/a>|\{#([^\s}]+)\}/g)) anchors.add(html ?? pandoc);
+  }
+  return anchors;
+}
+
 class DrawnFiles {
   readonly targets: PageLinks['targets'] = new Map();
   private readonly rawRefids = new Set<string>();
@@ -1271,11 +1295,10 @@ class DrawnFiles {
       templates.recordAnchors(undefined);
     }
     // A section or \anchor in a description is drawn under its own id.
-    for (const content of contents) {
-      for (const [, html, pandoc] of content?.matchAll(/<a id="([^"]+)"><\/a>|\{#([^\s}]+)\}/g) ?? []) {
-        const id = html ?? pandoc;
+    for (const id of explicitAnchors(contents)) {
+      if (!canonicalAnchors.has(id)) {
         this.land(id, path, id);
-        if (!canonicalAnchors.has(id)) this.rawRefids.add(id);
+        this.rawRefids.add(id);
       }
     }
     this.drawn.push({ compound, path, contents });
@@ -1286,13 +1309,7 @@ class DrawnFiles {
     const targets: LinkManifest['targets'] = {};
     const anchorsByPath = new Map<string, Set<string>>();
     for (const file of this.drawn) {
-      const anchors = new Set<string>();
-      for (const content of file.contents) {
-        for (const [, html, pandoc] of content?.matchAll(/<a id="([^"]+)"><\/a>|\{#([^\s}]+)\}/g) ?? []) {
-          anchors.add(html ?? pandoc);
-        }
-      }
-      anchorsByPath.set(file.path, anchors);
+      anchorsByPath.set(file.path, explicitAnchors(file.contents));
     }
     for (const refid of [...this.rawRefids].sort()) {
       const target = this.targets.get(refid)!;

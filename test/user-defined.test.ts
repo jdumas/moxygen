@@ -10,6 +10,8 @@ it('includes documented user-defined sections by default in both APIs', async ()
   await run({ directory, classes: true, output: join(output, '%s.md'), quiet: true });
   const markdown = readFileSync(join(output, 'Widget.md'), 'utf8');
   expect(markdown).toContain('A documented public named operation.');
+  expect(markdown).toContain('## User-Defined Members');
+  expect(markdown).not.toContain('## user-defined');
   expect(markdown).toContain('A normal public operation.');
   expect((await generate({ directory, quiet: true }))[0].markdown).toContain('A documented public named operation.');
 });

@@ -129,7 +129,7 @@ export function filterCollection(
         if (compound.groupid !== groupid && !(compound.kind === 'group' && parent?.id === groupid)) {
           continue;
         }
-      } else if ((item as Member).groupid !== groupid) {
+      } else if ((item as Member).groupid !== groupid && !(item as Member).groupids?.includes(groupid)) {
         continue;
       }
     }

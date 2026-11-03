@@ -665,7 +665,7 @@ function parseMember(
   memberdef: Record<string, unknown>,
 ): void {
   log.verbose(`Processing member ${member.kind} ${member.name}`);
-  member.section = section;
+  if (section !== 'user-defined' || !member.section) member.section = section;
   member.params = [];
 
   const docLists = extractDocLists(memberdef);
@@ -975,10 +975,18 @@ function parseCompound(compound: Compound, compounddef: Record<string, unknown>)
           if (!member) continue;
 
           if (compound.kind === 'group') {
-            member.groupid = compound.id;
-            member.groupname = compound.name;
+            if (!member.groupid) {
+              member.groupid = compound.id;
+              member.groupname = compound.name;
+            }
+            member.groupids ??= [];
+            if (!member.groupids.includes(compound.id)) member.groupids.push(compound.id);
           } else if (compound.kind === 'file') {
             if (!root.members.includes(member)) root.members.push(member);
+          }
+          // A named section is presentation, not a more specific member kind.
+          if (member.section === 'user-defined' && sectionAttrs.kind !== 'user-defined') {
+            member.section = sectionAttrs.kind;
           }
           // Parse shared definitions once, preferring the declaring owner's
           // section when it is available after a file/group definition.
